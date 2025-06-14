@@ -71,17 +71,34 @@ def predict_video(video_path, model):
 
     return label, float(confidence)
 
-# Load model at startup
+# Configure TensorFlow to use CPU only and disable unnecessary warnings
+import tensorflow as tf
+import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'  # Disable GPU
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'   # Reduce TF logging
+
+# Load model at startup with custom loader to handle batch_shape
 try:
-    import tensorflow as tf
-    tf.get_logger().setLevel('ERROR')  # Reduce TensorFlow logging
+    # First try loading with custom_objects to handle batch_shape
+    json_config = None
+    with tf.io.gfile.GFile(MODEL_PATH, 'r') as json_file:
+        json_config = json_file.read()
+        
+    if json_config:
+        # If it's a JSON config, rebuild the model
+        config = tf.keras.models.model_from_json(json_config)
+        model = tf.keras.models.Model.from_config(config)
+    else:
+        # If not JSON, try loading directly with custom objects
+        model = tf.keras.models.load_model(
+            MODEL_PATH,
+            compile=False,
+            custom_objects={'BatchNormalization': tf.keras.layers.BatchNormalization}
+        )
     
-    # Custom load model with error handling
-    model = load_model(MODEL_PATH, compile=False, custom_objects=None)
-    
-    # Verify model can make predictions
+    # Test the model
     test_input = np.zeros((1, FRAMES_PER_VIDEO, FRAME_HEIGHT, FRAME_WIDTH, 3))
-    _ = model.predict(test_input)  # Test prediction
+    _ = model.predict(test_input)
     print("Model loaded and verified successfully")
 except Exception as e:
     print(f"Error loading model: {e}")
