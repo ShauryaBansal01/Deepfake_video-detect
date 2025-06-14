@@ -73,7 +73,16 @@ def predict_video(video_path, model):
 
 # Load model at startup
 try:
-    model = load_model(MODEL_PATH, compile=False)
+    import tensorflow as tf
+    tf.get_logger().setLevel('ERROR')  # Reduce TensorFlow logging
+    
+    # Custom load model with error handling
+    model = load_model(MODEL_PATH, compile=False, custom_objects=None)
+    
+    # Verify model can make predictions
+    test_input = np.zeros((1, FRAMES_PER_VIDEO, FRAME_HEIGHT, FRAME_WIDTH, 3))
+    _ = model.predict(test_input)  # Test prediction
+    print("Model loaded and verified successfully")
 except Exception as e:
     print(f"Error loading model: {e}")
     exit(1)
